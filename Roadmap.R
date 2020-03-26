@@ -85,7 +85,7 @@ for (c in list.europe.reduced){
 	print(c)
 	begin.europe <- which(DF.sync[, "Europe"] > 0)[1]
 	begin <- which(DF.Europe.reduced[c, ] > 0)[1]
-	#end <- 
+	#end <-
 	print(begin)
 	#DF.sync.2$'c' <- c(rep(NA, dim(DF.sync.2)[1]))
 	data.scaled <- c(rep(0, (begin.europe-1))
@@ -122,17 +122,17 @@ magic_for(print, silent = TRUE) # call magic_for()
 RES <- list()
 for (c in c("France", "Italy", "Spain")){
 	print(c)
-				
+
 				DIM <- dim(DATA[DATA$Country.Region == c, ])[1]
 				#print(DATA[DATA$Country.Region == c, ])
-				
-				
+
+
 				if(DIM > 1){
 						DAT <- unlist(DATA[DATA$Country.Region == c & DATA$Province.State == c, -c(1:4)])
 				} else {
 						DAT <- unlist(DATA[DATA$Country.Region == c, -c(1:4)])
-				}	
-	
+				}
+
 	#print((DAT))
 	##	remove beginnong 0
 	DAT <- DAT[c(which(DAT > 0)[1]):length(DAT)]
@@ -147,18 +147,18 @@ for (c in c("France", "Italy", "Spain")){
 	BEGIN = 15
 	END = 30
 	#
-	
+
 	estR0<-estimate.R(DAT.0, mGT
 					, begin = BEGIN, end = END
 					, methods=c("EG"
 					#, "ML", "TD", "AR", "SB"
-					), 
+					),
                   pop.size=100000, nsim=1000)
 
 	RES[[c]] <- estR0$estimates$EG$conf.int
-	
-	
-	
+
+
+
 }
 
 magic_result_as_dataframe()     # get the result
@@ -280,6 +280,22 @@ predict.Arima(FIT, n.ahead = 6)
 DF.predict <- DF[DF[, "Country"] == "France", ]
 
 
+############################		SHINY
+before <- which(covdat$total_cases == 0)
+covdat.sync <- covdat[-before, ]
+covdat.sync$J <- 0
+for (c in unique(covdat.sync$location)){
+				L <- dim(covdat.sync[covdat.sync$location == c, ])[1]
+				covdat.sync[covdat.sync$location == c, "J"] <- seq(length = L)
+}
 
 
 
+
+covdat_selected <- covdat.sync[covdat.sync$location %in% c("China", "Italy", "United States"), ]
+ggplot(covdat_selected) +
+					#scale_color_brewer(palette="Paired", name = "Country")
+					scale_color_discrete(name = "Countries:") +
+					theme_linedraw(base_size = 15)+
+					labs(x = "Date", y = "Number of cases per capita")+
+geom_line(mapping = aes(x = J, y = total_cases_percapita, colour = location), size=1)

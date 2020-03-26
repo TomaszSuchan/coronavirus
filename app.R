@@ -80,7 +80,9 @@ ui <- fluidPage(#theme = shinytheme("flatly"),
                    checkboxInput(inputId="percapita",
                                  label = "Correct for population size", value = FALSE),
                    checkboxInput(inputId="dailyscale",
-                                 label = "Plot daily breaks on x axis", value = FALSE)
+                                 label = "Plot daily breaks on x axis", value = FALSE),
+                   checkboxInput(inputId="sync",
+                                 label = "Synchronize national epidemics", value = FALSE)
       ),
       mainPanel(width = 9,
                 fluidRow(
@@ -107,13 +109,53 @@ server <- function(input, output, session) {
   #    re-executed when inputs (input$countries) change
   # 2. Its output type is a plot
   output$distPlot <- renderPlot({
-    dates_range <- seq(input$dates[1], input$dates[2], by = "days")
-    covdat_selected <- covdat[(covdat$location %in% input$countries_sel) & (covdat$date %in% dates_range),]
+######
+          if(input$sync){
+          before <- which(covdat$total_cases == 0)
+          covdat.sync <- covdat[-before, ]
+          covdat.sync$J <- 0
+          for (c in unique(covdat.sync$location)){
+          				L <- dim(covdat.sync[covdat.sync$location == c, ])[1]
+          				covdat.sync[covdat.sync$location == c, "J"] <- seq(length = L)
+                  }
+          dates_range <- seq(input$dates[1], input$dates[2], by = "days")
+          covdat_selected <- covdat.sync[(covdat.sync$location %in% input$countries_sel) & (covdat.sync$date %in% dates_range),]
+          } else {
+          dates_range <- seq(input$dates[1], input$dates[2], by = "days")
+          covdat_selected <- covdat[(covdat$location %in% input$countries_sel),]
+          }
+######
+#    dates_range <- seq(input$dates[1], input$dates[2], by = "days")
+#    covdat_selected <- covdat[(covdat$location %in% input$countries_sel) & (covdat$date %in% dates_range),]
 
     myplot <- ggplot(covdat_selected) +
               #scale_color_brewer(palette="Paired", name = "Country")
               scale_color_discrete(name = "Countries:") +
               theme_linedraw(base_size = 15)
+######
+    if(input$sync){
+    if(input$percapita){
+    myplot <- myplot + labs(x = "Date", y = "Number of cases per capita")
+    if(input$data_column == "total_cases"){
+      myplot <- myplot + geom_line(mapping = aes(x = J, y = total_cases_percapita, colour = location), size=1)}
+    else if(input$data_column == "new_cases"){
+      myplot <- myplot + geom_line(mapping = aes(x = J, y = new_cases_percapita, colour = location), size=1)}
+    else if(input$data_column == "total_deaths"){
+      myplot <- myplot + geom_line(mapping = aes(x = J, y = total_deaths_percapita, colour = location), size=1)}
+    else if(input$data_column == "new_deaths"){
+      myplot <- myplot + geom_line(mapping = aes(x = J, y = new_deaths_percapita, colour = location), size=1)}
+    } else {
+    myplot <- myplot + labs(x = "Date", y = "Number of cases")
+    if(input$data_column == "total_cases"){
+      myplot <- myplot + geom_line(mapping = aes(x = J, y = total_cases, colour = location), size=1)}
+    else if(input$data_column == "new_cases"){
+      myplot <- myplot + geom_line(mapping = aes(x = J, y = new_cases, colour = location), size=1)}
+    else if(input$data_column == "total_deaths"){
+      myplot <- myplot + geom_line(mapping = aes(x = J, y = total_deaths, colour = location), size=1)}
+    else if(input$data_column == "new_deaths"){
+      myplot <- myplot + geom_line(mapping = aes(x = J, y = new_deaths, colour = location), size=1)}
+    }
+    } else {
     if(input$percapita){
       myplot <- myplot + labs(x = "Date", y = "Number of cases per capita")
       if(input$data_column == "total_cases"){
@@ -124,19 +166,20 @@ server <- function(input, output, session) {
         myplot <- myplot + geom_line(mapping = aes(x = date, y = total_deaths_percapita, colour = location), size=1)}
       else if(input$data_column == "new_deaths"){
         myplot <- myplot + geom_line(mapping = aes(x = date, y = new_deaths_percapita, colour = location), size=1)}
-    }
+        }
+        else{
+          myplot <- myplot + labs(x = "Date", y = "Number of cases")
+          if(input$data_column == "total_cases"){
+            myplot <- myplot + geom_line(mapping = aes(x = date, y = total_cases, colour = location), size=1)}
+          else if(input$data_column == "new_cases"){
+            myplot <- myplot + geom_line(mapping = aes(x = date, y = new_cases, colour = location), size=1)}
+          else if(input$data_column == "total_deaths"){
+            myplot <- myplot + geom_line(mapping = aes(x = date, y = total_deaths, colour = location), size=1)}
+          else if(input$data_column == "new_deaths"){
+            myplot <- myplot + geom_line(mapping = aes(x = date, y = new_deaths, colour = location), size=1)}
+        }
+      }
 
-    else{
-      myplot <- myplot + labs(x = "Date", y = "Number of cases")
-      if(input$data_column == "total_cases"){
-        myplot <- myplot + geom_line(mapping = aes(x = date, y = total_cases, colour = location), size=1)}
-      else if(input$data_column == "new_cases"){
-        myplot <- myplot + geom_line(mapping = aes(x = date, y = new_cases, colour = location), size=1)}
-      else if(input$data_column == "total_deaths"){
-        myplot <- myplot + geom_line(mapping = aes(x = date, y = total_deaths, colour = location), size=1)}
-      else if(input$data_column == "new_deaths"){
-        myplot <- myplot + geom_line(mapping = aes(x = date, y = new_deaths, colour = location), size=1)}
-    }
 
     if(input$log)
       myplot <- myplot + scale_y_log10()
