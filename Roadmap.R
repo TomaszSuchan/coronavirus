@@ -299,3 +299,90 @@ ggplot(covdat_selected) +
 					theme_linedraw(base_size = 15)+
 					labs(x = "Date", y = "Number of cases per capita")+
 geom_line(mapping = aes(x = J, y = total_cases_percapita, colour = location), size=1)
+
+
+
+
+
+##	R0
+require(R0)
+DAT.0 = covdat[covdat$location == "France", c("date", "new_cases")]
+DAT.0 <- DAT.0[-c(1:(which(DAT.0$new_cases > 0)[1]-1)), ]
+DATES <- DAT.0$date
+DAT.0 <- DAT.0$new_cases
+names(DAT.0) <- format(as.Date(names(DAT.0)), "%m/%d/%Y")
+
+mGT<-generation.time("gamma", c(3, 1.5))
+#
+#step = 3
+L = length(DAT.0)
+window = 3
+
+#
+#n.steps <- seq(floor(L/step))
+steps <- data.frame(
+#										"BEGIN" = c(n.steps*step - 4, n.steps[length(n.steps)]*step + 1)
+#										, "END" = c(n.steps*step, L)
+										J = 1:(length(DAT.0))
+										, "BEGIN" = as.numeric(NA)
+										, "END" = as.numeric(NA)
+										, "R0_point" = as.numeric(NA)
+										, "R0_low" = as.numeric(NA)
+										, "R0_high" = as.numeric(NA)
+										)
+
+
+
+steps$BEGIN <- unlist(apply(steps, 1, function(x){
+				if((x["J"] - window/2) < 0){
+				return(0)
+				} else {
+				return(floor(x["J"] - window/2))
+				}
+				}
+				)
+				)
+
+steps$END <- 		unlist(apply(steps, 1, function(x){
+				if((x["J"] - window/2) < 0){
+				return(window)
+				} else {
+				return(floor(x["J"] + window/2))
+				}
+				}
+				)
+				)
+
+
+
+
+#require(magicfor)               # load library
+#magic_for(print, silent = TRUE) # call magic_for()
+
+
+
+for (s in (1:(dim(steps)[1]))){
+		print(s)
+		if(mean(DAT.0[(steps[s, "BEGIN"]):(steps[s, "END"])]) <= 10){
+		steps[s, "R0_point"] <- 0
+		steps[s, "R0_low"] <- 0
+		steps[s, "R0_high"] <- 0
+		} else {
+		estR0 <- estimate.R(DAT.0, mGT
+					, begin = steps[s, "BEGIN"], end = steps[s, "END"]
+					, methods=c(
+					"EG"
+					#"ML"
+					#, "TD", "AR", "SB"
+					)
+					, pop.size=100000, nsim=10000)
+					print(estR0)
+					steps[s, "R0_point"] <- estR0$estimates$EG$R
+					steps[s, "R0_low"] <- estR0$estimates$EG$conf.int[1]
+					steps[s, "R0_high"] <- estR0$estimates$EG$conf.int[2]
+					}
+				}
+
+
+
+#magic_result_as_dataframe()     # get the result
