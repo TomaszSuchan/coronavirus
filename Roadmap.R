@@ -306,11 +306,11 @@ geom_line(mapping = aes(x = J, y = total_cases_percapita, colour = location), si
 
 ##	R0
 require(R0)
-DAT.0 = covdat[covdat$location == "France", c("date", "new_cases")]
+DAT.0 = covdat[covdat$location == "Italy", c("date", "new_cases")]
 DAT.0 <- DAT.0[-c(1:(which(DAT.0$new_cases > 0)[1]-1)), ]
 DATES <- DAT.0$date
 DAT.0 <- DAT.0$new_cases
-names(DAT.0) <- format(as.Date(names(DAT.0)), "%m/%d/%Y")
+names(DAT.0) <- format(as.Date(as.character(DATES)), "%m/%d/%Y")
 
 mGT<-generation.time("gamma", c(3, 1.5))
 #
@@ -321,9 +321,9 @@ window = 3
 #
 #n.steps <- seq(floor(L/step))
 steps <- data.frame(
-#										"BEGIN" = c(n.steps*step - 4, n.steps[length(n.steps)]*step + 1)
-#										, "END" = c(n.steps*step, L)
-										J = 1:(length(DAT.0))
+#										"BEGIN" = c(n.steps*step - 4, n.steps[length(n.steps)]*step + 1 -1)
+#										, "END" = c(n.steps*step, L - 1)
+										J = 1:(length(DAT.0) - 1)
 										, "BEGIN" = as.numeric(NA)
 										, "END" = as.numeric(NA)
 										, "R0_point" = as.numeric(NA)
@@ -337,7 +337,7 @@ steps$BEGIN <- unlist(apply(steps, 1, function(x){
 				if((x["J"] - window/2) < 0){
 				return(0)
 				} else {
-				return(floor(x["J"] - window/2))
+				return(x["J"] - floor(window/2))
 				}
 				}
 				)
@@ -378,11 +378,216 @@ for (s in (1:(dim(steps)[1]))){
 					, pop.size=100000, nsim=10000)
 					print(estR0)
 					steps[s, "R0_point"] <- estR0$estimates$EG$R
-					steps[s, "R0_low"] <- estR0$estimates$EG$conf.int[1]
-					steps[s, "R0_high"] <- estR0$estimates$EG$conf.int[2]
+					steps[s, "R0_low"] <-   estR0$estimates$EG$conf.int[1]
+					steps[s, "R0_high"] <-  estR0$estimates$EG$conf.int[2]
 					}
 				}
 
 
 
 #magic_result_as_dataframe()     # get the result
+
+
+
+
+
+##### R0 on deaths
+require(R0)
+DAT.0 = covdat[covdat$location %in% c("Italy", "France"), c("date", "location", "new_deaths")]
+###
+mGT<-generation.time("gamma", c(3, 1.5))
+
+
+
+RES <- list()
+#
+for(c in unique(DAT.0$location)){
+DAT.1 <- DAT.0[DAT.0$location == c, ]
+DAT.1 <- DAT.1[-c(1:(which(DAT.1$new_deaths > 0)[1]-1)), ]
+
+
+DATES <- DAT.1$date
+DAT.1 <- DAT.1$new_deaths
+names(DAT.1) <- format(as.Date(as.character(DATES)), "%m/%d/%Y")
+print(c)
+print(DAT.1)
+##
+#
+#step = 3
+L = length(DAT.0)
+window = 3
+#
+#
+steps <- data.frame(
+#										"BEGIN" = c(n.steps*step - 4, n.steps[length(n.steps)]*step + 1 -1)
+#										, "END" = c(n.steps*step, L - 1)
+										J = 1:(length(DAT.1) - 1)
+										, "BEGIN" = as.numeric(NA)
+										, "END" = as.numeric(NA)
+										, "R0_point" = as.numeric(NA)
+										, "R0_low" = as.numeric(NA)
+										, "R0_high" = as.numeric(NA)
+										)
+#
+steps$BEGIN <- unlist(apply(steps, 1, function(x){
+				if((x["J"] - window/2) < 0){
+				return(0)
+				} else {
+				return(x["J"] - floor(window/2))
+				}
+				}
+				)
+				)
+#
+steps$END <- 		unlist(apply(steps, 1, function(x){
+				if((x["J"] - window/2) < 0){
+				return(window)
+				} else {
+				return(floor(x["J"] + window/2))
+				}
+				}
+				)
+				)
+
+
+#
+			RES[[c]] <- steps
+			for (s in (1:(dim(steps)[1]))){
+					print(s)
+					if(mean(DAT.1[(RES[[c]][s, "BEGIN"]):(RES[[c]][s, "END"])]) <= 10){
+					RES[[c]][s, "R0_point"] <- 0
+					RES[[c]][s, "R0_low"] <- 0
+					RES[[c]][s, "R0_high"] <- 0
+					} else {
+					estR0 <- estimate.R(DAT.1, mGT
+								, begin = steps[s, "BEGIN"], end = steps[s, "END"]
+								, methods=c(
+								"EG"
+								#"ML"
+								#"TD"
+								 #"AR", "SB"
+								)
+								, pop.size=100000, nsim=10000)
+								print(estR0)
+								RES[[c]][s, "R0_point"] <- estR0$estimates$EG$R
+								RES[[c]][s, "R0_low"] <- estR0$estimates$EG$conf.int[1]
+								RES[[c]][s, "R0_high"] <- estR0$estimates$EG$conf.int[2]
+								}
+							}
+
+}
+
+#
+for(c in names(RES)){
+	RES[[c]]$location <- c
+}
+RES <- do.call("rbind", RES)
+#
+ggplot(data = RES, aes(x = J, y = R0_point, colour = location)) +
+geom_point() +
+geom_line()+
+geom_ribbon(aes(ymin=R0_low, ymax=R0_high, colour = location), linetype=2, alpha=0.5)+
+theme_minimal()
+
+
+
+
+
+
+
+#step = 3
+L = length(DAT.0)
+window = 3
+
+
+
+ggplot(data = steps, aes(x = J, y = R0_point)) +
+geom_point() +
+geom_line()+
+geom_ribbon(aes(ymin=steps$R0_low, ymax=steps$R0_high), linetype=2, alpha=0.5)+
+theme_minimal()
+
+
+for (s in (1:(dim(steps)[1]))){
+		print(s)
+		if(mean(DAT.0[(steps[s, "BEGIN"]):(steps[s, "END"])]) <= 10){
+		steps[s, "R0_point"] <- 0
+		steps[s, "R0_low"] <- 0
+		steps[s, "R0_high"] <- 0
+		} else {
+		estR0 <- estimate.R(DAT.1, mGT
+					, begin = steps[s, "BEGIN"], end = steps[s, "END"]
+					, methods=c(
+					"EG"
+					#"ML"
+					#"TD"
+					 #"AR", "SB"
+					)
+					, pop.size=1000000, nsim=10000)
+					print(estR0)
+					steps[s, "R0_point"] <- estR0$estimates$EG$R
+					steps[s, "R0_low"] <- estR0$estimates$EG$conf.int[1]
+					steps[s, "R0_high"] <- estR0$estimates$EG$conf.int[2]
+#					steps[s, "R0_point"] <- estR0$estimates$TD$R[3]
+#					steps[s, "R0_low"] <- estR0$estimates$TD$R[2]
+#					steps[s, "R0_high"] <- estR0$estimates$TD$R[1]
+					}
+				}
+
+
+
+
+####	TRYING TO SAMPLE CFR FROM LOG NORMAL
+
+
+RES <- list()
+i = 1
+
+x <-  sample(rlnorm(50, mean = -2, sd = 0.5))
+
+
+
+for (cfr in c(0.0001, 0.001, 0.01, 0.05)){
+			DAT.1 <- DAT.0/cfr
+			RES[[i]] <- steps
+			for (s in (1:(dim(steps)[1]))){
+					print(s)
+					if(mean(DAT.1[(RES[[i]][s, "BEGIN"]):(RES[[i]][s, "END"])]) <= 10){
+					RES[[i]][s, "R0_point"] <- 0
+					RES[[i]][s, "R0_low"] <- 0
+					RES[[i]][s, "R0_high"] <- 0
+					} else {
+					estR0 <- estimate.R(DAT.1, mGT
+								, begin = steps[s, "BEGIN"], end = steps[s, "END"]
+								, methods=c(
+								#"EG"
+								#"ML"
+								"TD"
+								 #"AR", "SB"
+								)
+								, pop.size=100000, nsim=10000)
+								print(estR0)
+								RES[[i]][s, "R0_point"] <- estR0$estimates$TD$R[3]
+								RES[[i]][s, "R0_low"] <- estR0$estimates$TD$R[2]
+								RES[[i]][s, "R0_high"] <- estR0$estimates$TD$R[1]
+								}
+							}
+						i = i+1
+
+}
+##
+names(RES) <- c(0.0001, 0.001, 0.01, 0.05)
+for (j in names(RES)){
+			RES[[j]]$cfr <- j
+}
+RES.collapse <- do.call("rbind", RES)
+p <- ggplot(data = RES.collapse, aes(x = J, y = R0_point, colour = cfr)) + geom_point() + geom_line()
+
+
+
+
+
+#
+
+
+#
