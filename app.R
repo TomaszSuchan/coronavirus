@@ -74,8 +74,7 @@ ui <- fluidPage(#theme = shinytheme("flatly"),
                                     'Asia' = unique(covdat[covdat$continent == 'Asia',]$location),
                                     'Oceania' = unique(covdat[covdat$continent == 'Oceania',]$location)
                                     ),
-                               selected = c("France", "Italy", "Germany", "Spain", "Poland", "South Korea"
-                               ),
+                               selected = c("France", "Italy", "Germany", "Spain", "Poland", "South Korea"),
                                multiple = TRUE
                    ),
                    strong("Plot options:"),
